@@ -3,6 +3,7 @@ import torch
 
 from fastai.vision.all import *
 from fastai.vision.learner import create_vision_model
+from torchvision import transforms
 from huggingface_hub import hf_hub_download
 from PIL import Image
 
