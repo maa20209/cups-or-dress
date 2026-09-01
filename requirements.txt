@@ -1,3 +1,5 @@
 streamlit
 fastai==2.8.8
+torch==2.10.0
+torchvision
 huggingface_hub
