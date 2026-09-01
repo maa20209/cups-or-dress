@@ -1,10 +1,10 @@
 import streamlit as st
 import torch
-from torchvision.models import resnet18
-from torch import nn
+
+from fastai.vision.all import *
+from fastai.vision.learner import create_vision_model
 from huggingface_hub import hf_hub_download
 from PIL import Image
-from torchvision import transforms
 
 
 st.set_page_config(page_title="Cups or Dress")
@@ -16,29 +16,21 @@ st.write("Upload an image and let the model classify it.")
 @st.cache_resource
 def load_model():
 
-    # Download the model weights from Hugging Face
+    # Download the trained weights from Hugging Face
     model_path = hf_hub_download(
         repo_id="MAA2026/cups-or-dress-model",
         filename="model_fp16.pth"
     )
 
-    # Create ResNet18
-    model = resnet18(weights=None)
-
-    # Re-create the fastai classification head
-    model.fc = nn.Sequential(
-        nn.AdaptiveAvgPool2d((1, 1)),
-        nn.Flatten(),
-        nn.BatchNorm1d(512),
-        nn.Dropout(0.25),
-        nn.Linear(512, 512, bias=False),
-        nn.ReLU(),
-        nn.BatchNorm1d(512),
-        nn.Dropout(0.5),
-        nn.Linear(512, 2, bias=False)
+    # Re-create the SAME type of model used by fastai vision_learner
+    model = create_vision_model(
+        resnet18,
+        n_out=2,
+        pretrained=False,
+        ps=0.5
     )
 
-    # Load the saved weights
+    # Load our saved weights
     state_dict = torch.load(
         model_path,
         map_location="cpu",
@@ -55,10 +47,11 @@ def load_model():
 model = load_model()
 
 
-# Same basic image size used during training
+# Same image size used during training
 transform = transforms.Compose([
     transforms.Resize((192, 192)),
     transforms.ToTensor(),
+    transforms.Normalize(*imagenet_stats)
 ])
 
 
@@ -72,7 +65,11 @@ if uploaded_file is not None:
 
     image = Image.open(uploaded_file).convert("RGB")
 
-    st.image(image, caption="Uploaded image")
+    st.image(
+        image,
+        caption="Uploaded image",
+        use_container_width=True
+    )
 
     if st.button("Classify"):
 
@@ -84,9 +81,12 @@ if uploaded_file is not None:
 
         classes = ["cups", "dress"]
 
-        prediction = classes[probabilities.argmax().item()]
+        prediction_index = probabilities.argmax().item()
+        prediction = classes[prediction_index]
 
         st.subheader(f"Prediction: {prediction}")
 
         for label, probability in zip(classes, probabilities):
-            st.write(f"**{label}**: {probability.item():.2%}")
+            st.write(
+                f"**{label}**: {probability.item():.2%}"
+            )
